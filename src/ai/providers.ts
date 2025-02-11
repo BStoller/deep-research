@@ -1,10 +1,18 @@
 import { createOpenAI, type OpenAIProviderSettings } from '@ai-sdk/openai';
+import { createReplicate, type ReplicateProviderSettings } from '@ai-sdk/replicate';
+import { createTogetherAI } from '@ai-sdk/togetherai';
 import { getEncoding } from 'js-tiktoken';
 
 import { RecursiveCharacterTextSplitter } from './text-splitter';
+import { extractReasoningMiddleware, wrapLanguageModel } from 'ai';
 
 interface CustomOpenAIProviderSettings extends OpenAIProviderSettings {
   baseURL?: string;
+}
+
+interface CustomReplicateProviderSettings extends ReplicateProviderSettings {
+  reasoningEffort?: 'low' | 'medium' | 'high';
+  structuredOutputs?: boolean;
 }
 
 // Providers
@@ -13,14 +21,29 @@ const openai = createOpenAI({
   baseURL: process.env.OPENAI_ENDPOINT || 'https://api.openai.com/v1',
 } as CustomOpenAIProviderSettings);
 
+const replicate = createReplicate({
+  apiToken: process.env.REPLICATE_API_TOKEN!,
+});
+
+const together = createTogetherAI({
+  apiKey: process.env.TOGETHER_API_KEY!,
+});
+
 const customModel = process.env.OPENAI_MODEL || 'o3-mini';
 
-// Models
+export const deepseekR1Model = wrapLanguageModel({model: together('deepseek-ai/Deepseek-R1'), middleware: [
+  extractReasoningMiddleware({tagName: 'think'})
+]});
 
+export const mini4oModel = openai('gpt-4o');
+
+// Models
 export const o3MiniModel = openai(customModel, {
   reasoningEffort: customModel.startsWith('o') ? 'medium' : undefined,
   structuredOutputs: true,
 });
+
+export const o1MiniModel = openai('o1-mini');
 
 const MinChunkSize = 140;
 const encoder = getEncoding('o200k_base');
